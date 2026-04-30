@@ -52,6 +52,7 @@ button:active{opacity:.7;}
 </head>
 <body>
 <div id="app"></div>
+<script src="https://js.puter.com/v2/"></script>
 <script>
 // ── DATA ──────────────────────────────────────────────────────────────────────
 const DAYS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
@@ -325,19 +326,22 @@ function exportCSV(){
 }
 
 // ── AI CALLS ─────────────────────────────────────────────────────────────────
-async function callClaude(systemPrompt, userMessage){
-  const res = await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:1000,
-      system: systemPrompt,
-      messages:[{role:'user',content:userMessage}]
-    })
-  });
-  const data = await res.json();
-  return data.content?.map(b=>b.text||'').join('') || 'Error al obtener respuesta.';
+async function callAI(systemPrompt, userMessage) {
+  try {
+    // Invocamos a Puter.js usando el modelo de Google especificado
+    const response = await puter.ai.chat(userMessage, { 
+      model: 'google/gemini-2.5-flash',
+      system_prompt: systemPrompt 
+    });
+
+    // Validamos la respuesta: Puter suele devolver el texto directamente 
+    // o un objeto con la propiedad 'message'.
+    return typeof response === 'string' ? response : response.message.content;
+
+  } catch (error) {
+    console.error("Error en la conexión con Gemini:", error);
+    return 'Lo siento, hubo un problema al procesar tu mensaje.';
+  }
 }
 
 async function runChef(){
@@ -346,7 +350,7 @@ async function runChef(){
   const currentW = S.weightLog.length ? S.weightLog[S.weightLog.length-1].weight : 120;
   const proteinGoal = Math.round(currentW * 1.8);
   try {
-    S.chefResult = await callClaude(
+    S.chefResult = await callAI(
       `Eres un chef nutricionista experto. El usuario es Jorge, masculino, ${currentW}kg, 181cm, meta de perder grasa y ganar músculo. 
       Su plan alimenticio: desayuno con huevos y queso blanco, almuerzo con proteína + papa/arroz + caraotas/lentejas, cena con proteína + vegetales, snack de yogurt o fruta.
       Meta proteína diaria: ~${proteinGoal}g. Evitar: queso amarillo, frituras excesivas, azúcar. 
@@ -380,7 +384,7 @@ async function runCoach(){
   const currentW = S.weightLog.length ? S.weightLog[S.weightLog.length-1].weight : 120;
   const weightTrend = S.weightLog.length>=2 ? (S.weightLog[S.weightLog.length-1].weight - S.weightLog[0].weight).toFixed(1) : null;
   try {
-    S.coachResult = await callClaude(
+    S.coachResult = await callAI(
       `Eres un coach de entrenamiento y nutrición deportiva experto. El usuario es Jorge: masculino, ${currentW}kg actual (inicio: 122.5kg), 181cm, meta perder grasa y ganar músculo. 
       Lleva ${planWeek()} semanas de entrenamiento. Rutina PPL: Push lunes, Cardio martes/jueves, Pull miércoles, Legs viernes, HYROX opcional sábado. 
       Responde SIEMPRE en español, tono motivador pero directo. Sé específico con nombres de ejercicios. Máximo 350 palabras.`,
